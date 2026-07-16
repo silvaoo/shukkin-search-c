@@ -107,6 +107,13 @@ body {
 }
 /* ヘッダーのダイヤ名だけテーマ色にして、アプリを見分けやすくする(サイズは据え置き) */
 .dia-name { color: var(--orange); font-weight: 800; }
+/* ==== 更新のお知らせ(通知)ボタン ==== */
+.notify-btn {
+  background: var(--bg-card2); color: var(--dim);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 14px; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.notify-btn.on { color: var(--cyan); border-color: var(--cyan); }
 /* ==== 使い方と更新履歴モーダル ==== */
 .guide-modal {
   display: none; position: fixed; inset: 0; z-index: 10001;
@@ -383,6 +390,7 @@ input[type="date"] {
   background: rgba(0,245,255,0.15); border: 1px solid var(--cyan); color: var(--cyan);
   padding: 10px 24px; border-radius: 20px; font-size: 13px; z-index: 10000;
   opacity: 0; transition: opacity 0.3s; white-space: nowrap;
+  pointer-events: none; /* 見えていない時に下のボタン(更新バナー等)のタップを邪魔しないようにする */
 }
 .toast.show { opacity: 1; }
 </style>
@@ -447,9 +455,11 @@ input[type="date"] {
 <div class="footer">
   <div>⚠ あくまでも目安としてお使いください。</div>
   <div>出退勤時間に誤りがあっても当方は責任を負いかねます。</div>
-  <div class="credit">by AIタケタニ</div>
   <div style="margin-top:8px;"><span class="source-link" onclick="openGuide()">📖 本アプリの使い方と更新履歴</span></div>
-  <div style="opacity:0.4;font-size:9px;margin-top:6px;">ver.21 ／ 元データ画像リンクを追加</div>
+  <div style="margin-top:8px;">
+    <button id="notifyBtn" class="notify-btn" onclick="toggleNotify()">🔕 更新のお知らせ：オフ</button>
+  </div>
+  <div class="credit" style="margin-top:10px;">by AIタケタニ</div>
 </div>
 
 
@@ -962,6 +972,7 @@ function initSW(){
         if(nw.state==='installed'&&navigator.serviceWorker.controller){
           const b=document.getElementById('update-banner');
           if(b)b.style.display='block';
+          notifyUpdate(); // 通知がオンなら端末に知らせる
         }
       });
     });
@@ -983,6 +994,52 @@ function handleUpdateClick(){
   }).catch(()=>window.location.reload());
 }
 
+
+
+/* ==== 更新のお知らせ(通知) ====
+   注意: サーバーを持たない構成のため「アプリを閉じている間に届く通知」は出せない。
+   アプリを開いた時に新しい版を見つけたら、端末の通知として知らせる方式にしている。 */
+const NOTIFY_KEY='c-notify-enabled';
+function isNotifyOn(){ try{return localStorage.getItem(NOTIFY_KEY)==='on';}catch(e){return false;} }
+function updateNotifyUI(){
+  const b=document.getElementById('notifyBtn');
+  if(!b)return;
+  const on=isNotifyOn();
+  b.textContent = on ? '🔔 更新のお知らせ：オン' : '🔕 更新のお知らせ：オフ';
+  b.classList.toggle('on',on);
+}
+function toggleNotify(){
+  if(isNotifyOn()){
+    try{localStorage.setItem(NOTIFY_KEY,'off');}catch(e){}
+    updateNotifyUI(); showToast('🔕 更新のお知らせをオフにしました'); return;
+  }
+  if(!('Notification' in window)){ showToast('この端末は通知に対応していません'); return; }
+  Notification.requestPermission().then((p)=>{
+    if(p==='granted'){
+      try{localStorage.setItem(NOTIFY_KEY,'on');}catch(e){}
+      updateNotifyUI(); showToast('🔔 更新のお知らせをオンにしました');
+    }else{
+      showToast('通知が許可されていません。端末の設定から許可してください');
+    }
+  }).catch(()=>showToast('通知の設定に失敗しました'));
+}
+/* 新しい版を見つけた時に通知を出す */
+async function notifyUpdate(){
+  if(!isNotifyOn())return;
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  try{
+    const reg=await navigator.serviceWorker.getRegistration();
+    // スマホのChromeでは new Notification() が使えないため、Service Worker経由で出す
+    if(reg&&reg.showNotification){
+      reg.showNotification('出退勤検索くん (北大和Cダイヤ)',{
+        body:'更新しました！詳しくは更新履歴をご覧下さい。',
+        icon:'icons/icon-192.png',
+        badge:'icons/icon-192.png',
+        tag:'app-update'
+      });
+    }
+  }catch(e){ console.warn('通知の表示に失敗',e); }
+}
 
 /* ==== 使い方と更新履歴モーダル ==== */
 function openGuide(){
@@ -1282,6 +1339,7 @@ function closeSourceModal(){
 
 window.onload=function(){
   initSW(); // オフライン対応を開始
+  updateNotifyUI(); // 通知ボタンの表示を復元
   updateClock(); setInterval(updateClock,1000); // 時計を開始
   // 注意: このツールは同僚とも共有するため、特定の個人のダイヤ番号を
   // 「値」として自動入力してはいけない。あくまで「プレースホルダー(薄いヒント)」

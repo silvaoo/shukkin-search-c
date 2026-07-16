@@ -10,7 +10,7 @@
 
 // キャッシュ名にバージョンを入れておき、更新のたびにこの値を変えることで
 // 新しいService Workerが「更新あり」と判定されるようにする
-const CACHE_VERSION = 'c-shukkin-v5';
+const CACHE_VERSION = 'c-shukkin-v6';
 const CACHE_FILES = [
     './',
     './index.html',
@@ -22,7 +22,9 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_VERSION).then((cache) => cache.addAll(CACHE_FILES))
     );
-    self.skipWaiting(); // 新しいSWをすぐに有効化候補にする
+    // ここでは skipWaiting() を呼ばない。
+    // 呼ぶと新しい版が即座に切り替わってしまい、更新バナーや通知を出す間がなくなるため。
+    // 利用者がバナーをタップした時に SKIP_WAITING メッセージで切り替える。
 });
 
 // 有効化時: 古いバージョンのキャッシュを削除
@@ -60,4 +62,17 @@ self.addEventListener('message', (event) => {
     if (event.data === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+});
+
+// 通知をタップしたらアプリを開く(既に開いていればそれを前面に出す)
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+            for (const c of list) {
+                if ('focus' in c) return c.focus();
+            }
+            if (clients.openWindow) return clients.openWindow('./');
+        })
+    );
 });
