@@ -155,7 +155,6 @@ body {
 
 .cal-grid {
   display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 2px;
-  touch-action: none;   /* なぞって選ぶ時に画面が動かないようにする */
 }
 .cal-day {
   aspect-ratio: 1 / 1; min-width: 0;
@@ -531,7 +530,7 @@ input[type="date"] {
       <button class="cal-x" onclick="closeCal()">✕</button>
     </div>
 
-    <div class="cal-hint" id="calHint">指でなぞると期間をまとめて選べます<br>タップの場合は 1回目＝開始日 / 2回目＝終了日</div>
+    <div class="cal-hint" id="calHint">1回目のタップ＝開始日 / 2回目のタップ＝終了日<br>同じ日を2回タップすると、その日1日だけになります</div>
 
     <div class="cal-nav">
       <button class="cal-arrow" onclick="calMove(-1)">‹</button>
@@ -606,12 +605,12 @@ input[type="date"] {
 
       <div class="guide-step">
         <h3>③ 指定して検索（カレンダー）</h3>
-        <p>「📅 指定して検索」を押すとカレンダーが開きます。<b>調べたい期間を指でなぞる</b>だけで、まとめて選べます。</p>
+        <p>「📅 指定して検索」を押すとカレンダーが開きます。<b>1回目のタップで開始日、2回目のタップで終了日</b>。その間の期間がまとめて検索できます。</p>
         <img src="images/guide-cal.jpg" alt="カレンダーで期間を指定する">
         <div class="guide-note">
-          <b>なぞる</b>…始めの日から終わりの日まで指を滑らせるだけ<br>
-          <b>タップ</b>…1回目が開始日、2回目が終了日。同じ日を2回タップすればその日1日だけ<br><br>
-          「設定」を押すとカレンダーが閉じ、検索結果が出ます。画面が自動で下まで流れて、最終日とコピー・読み上げボタンが見える位置で止まります。‹ › で月を移動できます。
+          同じ日を2回タップすれば、その日1日だけを調べられます。<br>
+          ‹ › で月を移動できるので、月をまたいだ期間も指定できます。<br><br>
+          「設定」を押すとカレンダーが閉じ、検索結果が出ます。画面が自動で下まで流れて、最終日とコピー・読み上げボタンが見える位置で止まります。
         </div>
       </div>
 
@@ -647,7 +646,7 @@ input[type="date"] {
       </div>
       <div class="log-item">
         <div class="log-date">2026/07/16</div>
-        <div class="log-body"><span class="tag tag-new">新機能</span>「指定して検索」を追加。カレンダーを<b>指でなぞる</b>だけで期間をまとめて指定できます（タップの場合は1回目＝開始日、2回目＝終了日）。</div>
+        <div class="log-body"><span class="tag tag-new">新機能</span>「指定して検索」を追加。カレンダーで1回目のタップ＝開始日、2回目のタップ＝終了日を選ぶだけで、その期間をまとめて検索できます。</div>
       </div>
       <div class="log-item">
         <div class="log-date">2026/07/16</div>
@@ -1365,59 +1364,6 @@ function calTap(iso){
   renderCal();
 }
 
-/* ==== 指でなぞって期間を選ぶ ====
-   押した日から指を動かした先の日までを、そのまま期間として選べるようにする。
-   指を動かさずに離した場合は、これまで通りのタップ扱いにする。 */
-let _dragFrom=null;   // なぞり始めた日
-let _dragged=false;   // 実際に他の日まで動いたか
-function isoFromPoint(x,y){
-  const el=document.elementFromPoint(x,y);
-  if(!el)return null;
-  const cell=el.closest('.cal-day');
-  if(!cell||cell.classList.contains('empty'))return null;
-  return cell.dataset.iso||null;
-}
-function calDown(e){
-  const t=e.touches?e.touches[0]:e;
-  const iso=isoFromPoint(t.clientX,t.clientY);
-  if(!iso)return;
-  _dragFrom=iso; _dragged=false;
-}
-function calMoveDrag(e){
-  if(!_dragFrom)return;
-  const t=e.touches?e.touches[0]:e;
-  const iso=isoFromPoint(t.clientX,t.clientY);
-  if(!iso||iso===_dragFrom&&!_dragged)return;
-  if(iso===_dragFrom&&_dragged)return;
-  // 他の日まで動いた=なぞり操作とみなす
-  if(!_dragged){ _dragged=true; beep(880,50,0); if(navigator.vibrate)navigator.vibrate(12); }
-  _selStart = iso<_dragFrom ? iso : _dragFrom;
-  _selEnd   = iso<_dragFrom ? _dragFrom : iso;
-  renderCal();
-  e.preventDefault();
-}
-function calUp(e){
-  if(!_dragFrom)return;
-  if(!_dragged){
-    calTap(_dragFrom);        // 動かさずに離した = タップ
-  }else{
-    beep(1046,70,0);          // なぞり終わり
-    if(navigator.vibrate)navigator.vibrate(20);
-  }
-  _dragFrom=null; _dragged=false;
-}
-function bindCalDrag(){
-  const g=document.getElementById('calGrid');
-  if(!g||g.dataset.bound)return;
-  g.dataset.bound='1';
-  g.addEventListener('touchstart',calDown,{passive:true});
-  g.addEventListener('touchmove',calMoveDrag,{passive:false});
-  g.addEventListener('touchend',calUp);
-  g.addEventListener('mousedown',calDown);
-  g.addEventListener('mousemove',calMoveDrag);
-  g.addEventListener('mouseup',calUp);
-  g.addEventListener('mouseleave',()=>{ _dragFrom=null; _dragged=false; });
-}
 function renderCal(){
   const y=_calView.getFullYear(), m=_calView.getMonth();
   document.getElementById('calMonth').textContent=`${y}年 ${m+1}月`;
@@ -1436,10 +1382,9 @@ function renderCal(){
     if(iso===todayIso)cls+=' today';
     if(_selStart&&_selEnd&&iso>_selStart&&iso<_selEnd)cls+=' inrange';
     if(iso===_selStart||iso===_selEnd)cls+=' edge';
-    html+=`<div class="${cls}" data-iso="${iso}">${d}</div>`;
+    html+=`<div class="${cls}" onclick="calTap('${iso}')">${d}</div>`;
   }
   document.getElementById('calGrid').innerHTML=html;
-  bindCalDrag();   // なぞって選ぶ操作を有効にする
 
   // 選択状況の表示
   const sel=document.getElementById('calSel');
