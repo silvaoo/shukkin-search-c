@@ -186,6 +186,32 @@ body {
 .cal-ok { background: var(--cyan); color: #04241a; border-color: var(--cyan); flex: 1.3; }
 .cal-ok:disabled { opacity: 0.35; cursor: default; }
 
+/* ==== 検索結果カレンダー（番号と出退勤時間を一覧表示） ==== */
+.act-cal {
+  width: 100%; margin-top: 8px;
+  background: rgba(0,230,118,0.12); color: var(--cyan);
+  border: 1px solid rgba(0,230,118,0.35);
+}
+.rescal-grid .cal-day {
+  aspect-ratio: auto; min-height: 66px;
+  flex-direction: column; justify-content: flex-start;
+  gap: 1px; padding: 4px 1px; border: 1px solid var(--border);
+  cursor: default;
+}
+.rescal-grid .cal-day.empty { border-color: transparent; }
+.rc-date { font-size: 8.5px; color: var(--dim); line-height: 1; }
+.rc-dial { font-size: 15px; font-weight: 800; color: var(--orange); line-height: 1.1; }
+.rc-t { font-size: 9.5px; color: var(--text); line-height: 1.25; letter-spacing: -0.3px; }
+.rc-off { font-size: 9px; font-weight: 800; color: var(--green); line-height: 1.6; }
+.rescal-grid .cal-day.nodata { opacity: 0.22; }
+.rescal-grid .cal-day.today { border-color: var(--orange); }
+.rescal-grid .cal-day.hol .rc-date { color: #d96b6b; }
+.rescal-legend {
+  margin-top: 10px; font-size: 10px; color: var(--dim);
+  text-align: center; line-height: 1.7;
+}
+.rc-legend-off { color: var(--green); font-weight: 700; }
+
 /* ==== 更新のお知らせ(通知)ボタン ==== */
 .notify-btn {
   background: var(--bg-card2); color: var(--dim);
@@ -555,6 +581,29 @@ input[type="date"] {
   </div>
 </div>
 
+<!-- 検索結果をカレンダーで見る -->
+<div id="resCalModal" class="cal-modal">
+  <div class="cal-inner">
+    <div class="cal-top">
+      <div class="cal-title">📅 検索結果カレンダー</div>
+      <button class="cal-x" onclick="closeResultCal()">✕ 閉じる</button>
+    </div>
+    <div class="cal-nav">
+      <button class="cal-arrow" id="rcPrev" onclick="resCalMove(-1)">‹</button>
+      <div class="cal-month" id="resCalMonth"></div>
+      <button class="cal-arrow" id="rcNext" onclick="resCalMove(1)">›</button>
+    </div>
+    <div class="cal-dw">
+      <div class="sun">日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div class="sat">土</div>
+    </div>
+    <div class="cal-grid rescal-grid" id="resCalGrid"></div>
+    <div class="rescal-legend">
+      上段＝ダイヤ番号 ／ 下段＝出退勤時間<br>
+      <span class="rc-legend-off">緑は公休</span>・薄い日は検索範囲外です
+    </div>
+  </div>
+</div>
+
 <!-- 検索結果 -->
 <div id="resultsArea"></div>
 
@@ -623,7 +672,18 @@ input[type="date"] {
       </div>
 
       <div class="guide-step">
-        <h3>⑤ メモを残す</h3>
+        <h3>⑤ カレンダーで一覧を見る</h3>
+        <p>結果の一番下にある「📅 カレンダーで見る」を押すと、<b>1ヶ月分のダイヤ番号と出退勤時間が一目で分かります</b>。</p>
+        <img src="images/guide-rescal.jpg" alt="検索結果をカレンダーで一覧">
+        <div class="guide-note">
+          マスの中は 上段＝ダイヤ番号 / 下段＝出退勤時間 です。緑の「公休」は休みの日、薄い日は検索した期間の外です。<br>
+          月をまたいで検索した時は ‹ › で移動できます。<br>
+          ※ 出退勤時間の後ろに「※」が付く日は、途中で一度退勤する分割勤務です。詳しくは検索結果の一覧で確認してください。
+        </div>
+      </div>
+
+      <div class="guide-step">
+        <h3>⑥ メモを残す</h3>
         <p>各日の「📝 メモを追加」から、2種類のメモが書けます。💾保存・🗑削除もその場でできます。</p>
         <img src="images/guide-4.jpg" alt="メモ機能">
         <div class="guide-note">
@@ -634,7 +694,7 @@ input[type="date"] {
       </div>
 
       <div class="guide-step">
-        <h3>⑥ オフラインでも使えます</h3>
+        <h3>⑦ オフラインでも使えます</h3>
         <p>一度オンラインで開いておけば、その後は圏外や機内モードでも起動できます。通信は使いません。</p>
         <div class="guide-note">「🔄 新しいバージョンがあります」と出たらタップしてください。最新のダイヤ表に更新されます。</div>
       </div>
@@ -642,6 +702,10 @@ input[type="date"] {
 
     <!-- ===== 更新履歴 ===== -->
     <div class="guide-pane" id="paneLog">
+      <div class="log-item">
+        <div class="log-date">2026/07/16</div>
+        <div class="log-body"><span class="tag tag-new">新機能</span>検索結果を「📅 カレンダーで見る」を追加。1ヶ月分のダイヤ番号と出退勤時間が一目で分かります。</div>
+      </div>
       <div class="log-item">
         <div class="log-date">2026/07/16</div>
         <div class="log-body"><span class="tag tag-new">新機能</span>ダイヤ番号を保存するようにしました。一度入れれば、翌日からは自動で1つ進んだ番号が入るので毎回の入力が不要になります。</div>
@@ -1160,7 +1224,7 @@ function toggleNotify(){
    ダイヤ改正や新機能を追加した時だけ notify を true にして message を書く。
    細かい不具合修正の時は notify:false のままにしておけば、通知は出ず黙って更新される。 */
 const RELEASE = {
-  id: 'c-2026-07-16-cal2',   // お知らせの識別子(内容を変えたらこれも変える)
+  id: 'c-2026-07-16-cal3',   // お知らせの識別子(内容を変えたらこれも変える)
   notify: true,             // ダイヤ改正・新機能の時だけ true にする
   message: '更新しました！詳しくは更新履歴をご覧下さい。'
 };
@@ -1259,7 +1323,8 @@ function render(rows){
   html+=`<div class="action-row">
     <button class="act-btn act-copy" onclick="copyResults()">📋 結果をコピー</button>
     <button class="act-btn act-tts" id="speakResBtn" onclick="handleSpeakResults()">🔊 読み上げ</button>
-  </div>`;
+  </div>
+  <button class="act-btn act-cal" onclick="openResultCal()">📅 カレンダーで見る</button>`;
 
   el.innerHTML=html;
   window._lastRows=rows;
@@ -1534,6 +1599,88 @@ function forgetMyDial(){
 function showMyDialNote(on){
   const el=document.getElementById('myDialNote');
   if(el)el.style.display = on ? 'block' : 'none';
+}
+
+/* ==== 検索結果をカレンダーで見る ====
+   検索した結果を、月ごとのカレンダーに並べて一目で分かるようにする。
+   マスにはダイヤ番号と出退勤時間だけを出す。 */
+let _rcMonths=[];   // 結果に含まれる月の一覧
+let _rcIdx=0;       // 今表示している月
+
+function openResultCal(){
+  const rows=window._lastRows;
+  if(!rows||!rows.length){showToast('先に検索してください');return;}
+  // 結果に含まれる月を拾い出す
+  const set=new Set(rows.map(r=>r.iso.slice(0,7)));
+  _rcMonths=[...set].sort();
+  _rcIdx=0;
+  renderResultCal();
+  document.getElementById('resCalModal').classList.add('active');
+  document.body.style.overflow='hidden';
+  beep(880,70,0);   // 開いた時の音
+}
+function closeResultCal(){
+  document.getElementById('resCalModal').classList.remove('active');
+  document.body.style.overflow='';
+}
+function resCalMove(n){
+  const i=_rcIdx+n;
+  if(i<0||i>=_rcMonths.length)return;
+  _rcIdx=i; renderResultCal();
+  beep(760,50,0);
+}
+/* 出退勤時間を狭いマスでも読める形にする（分割勤務は最初と最後だけ出す） */
+function rcTimes(o){
+  if(!o||o==='—')return null;
+  const parts=o.split('〜');
+  if(parts.length<2)return null;
+  const s=parts[0].split('/')[0].trim();                    // 最初の出勤
+  const e=parts[1].split('/').pop().trim();                 // 最後の退勤
+  const split=o.includes('/');
+  return {s,e,split};
+}
+function renderResultCal(){
+  const rows=window._lastRows||[];
+  const ym=_rcMonths[_rcIdx];
+  const [y,m]=ym.split('-').map(Number);
+  document.getElementById('resCalMonth').textContent=`${y}年 ${m}月`;
+  document.getElementById('rcPrev').style.visibility=_rcIdx>0?'visible':'hidden';
+  document.getElementById('rcNext').style.visibility=_rcIdx<_rcMonths.length-1?'visible':'hidden';
+
+  const byIso={}; rows.forEach(r=>byIso[r.iso]=r);
+  const first=new Date(y,m-1,1);
+  const days=new Date(y,m,0).getDate();
+  const t=new Date();t.setHours(0,0,0,0);
+  const todayIso=toISO(t);
+
+  let html='';
+  for(let i=0;i<first.getDay();i++) html+='<div class="cal-day empty"></div>';
+  for(let d=1;d<=days;d++){
+    const dt=new Date(y,m-1,d);
+    const iso=toISO(dt);
+    const r=byIso[iso];
+    const dw=dt.getDay();
+    let cls='cal-day';
+    if(dw===0)cls+=' sun'; if(dw===6)cls+=' sat';
+    if(iso===todayIso)cls+=' today';
+    if(r&&(r.hol||r.obon))cls+=' hol';
+    if(!r)cls+=' nodata';
+
+    let body='';
+    if(r){
+      const off = !r.rec || !r.slot;                        // 公休
+      if(off){
+        body=`<div class="rc-dial">${r.dn}</div><div class="rc-off">公休</div>`;
+      }else{
+        const t2=rcTimes(r.slot.o);
+        body=`<div class="rc-dial">${r.dn}</div>`;
+        if(t2) body+=`<div class="rc-t">${t2.s}</div><div class="rc-t">${t2.e}${t2.split?'※':''}</div>`;
+        else   body+=`<div class="rc-t">要確認</div>`;
+      }
+    }
+    html+=`<div class="${cls}"><div class="rc-date">${d}</div>${body}</div>`;
+  }
+  document.getElementById('resCalGrid').innerHTML=html;
 }
 
 /* ==== 期間・クイック検索 ==== */
