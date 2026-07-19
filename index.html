@@ -123,23 +123,23 @@ body {
   50%     { transform: scale(1.02); }
 }
 /* タップ後の破裂 */
-#update-banner.burst { animation: ub-burst 0.45s ease-out forwards; pointer-events: none; }
+#update-banner.burst { animation: ub-burst 0.5s ease-out forwards; pointer-events: none; }
 @keyframes ub-burst {
   0%   { transform: scale(1); opacity: 1; }
-  30%  { transform: scale(1.15); opacity: 1; }
-  55%  { transform: scale(1.25); opacity: 0.9; }
-  100% { transform: scale(0.4); opacity: 0; }
+  25%  { transform: scale(1.12) rotate(-0.5deg); opacity: 1; }
+  45%  { transform: scale(1.4); opacity: 0.95; filter: brightness(1.5); }
+  100% { transform: scale(0.2); opacity: 0; filter: brightness(2); }
 }
 /* 煙の粒（移動先はJSがCSS変数で渡す） */
 .ub-smoke {
   position: fixed; z-index: 9998; border-radius: 50%;
-  background: radial-gradient(circle, rgba(210,210,220,0.9), rgba(180,180,190,0.35) 60%, transparent 72%);
+  background: radial-gradient(circle, rgba(220,220,230,0.95), rgba(185,185,195,0.4) 55%, transparent 72%);
   pointer-events: none; will-change: transform, opacity;
-  animation: ub-smoke-rise 0.85s ease-out forwards;
+  animation: ub-smoke-rise 1s ease-out forwards;
 }
 @keyframes ub-smoke-rise {
-  0%   { transform: translate(0,0) scale(0.4); opacity: 0.85; }
-  100% { transform: translate(var(--sx), var(--sy)) scale(2.2); opacity: 0; }
+  0%   { transform: translate(0,0) scale(0.35); opacity: 0.9; }
+  100% { transform: translate(var(--sx), var(--sy)) scale(2.6); opacity: 0; }
 }
 /* 動きを控えたい人の端末設定は尊重する */
 @media (prefers-reduced-motion: reduce){
@@ -1574,8 +1574,28 @@ function previewUpdateBanner(){
       b.style.display='none';
       b._bursting=false;
       document.body.style.paddingTop='';
-    },900);
+    },1100);
   },2500);
+}
+/* 「プシュー」と空気が抜ける音。ホワイトノイズをだんだん絞って作る。 */
+function hissSound(){
+  const ctx=getAudioCtx();
+  if(!ctx)return;
+  const dur=0.6;
+  const buf=ctx.createBuffer(1, ctx.sampleRate*dur, ctx.sampleRate);
+  const data=buf.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;   // ホワイトノイズ
+  const src=ctx.createBufferSource(); src.buffer=buf;
+  const bp=ctx.createBiquadFilter(); bp.type='bandpass';
+  bp.frequency.setValueAtTime(1800,ctx.currentTime);
+  bp.frequency.exponentialRampToValueAtTime(600,ctx.currentTime+dur); // だんだん低く=抜ける感じ
+  bp.Q.value=0.7;
+  const g=ctx.createGain();
+  g.gain.setValueAtTime(0.0001,ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.35,ctx.currentTime+0.04);     // 一気に立ち上がり
+  g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+dur);    // すーっと消える
+  src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+  src.start(); src.stop(ctx.currentTime+dur);
 }
 function handleUpdateClick(){
   const b=document.getElementById('update-banner');
@@ -1588,7 +1608,7 @@ function handleUpdateClick(){
     setTimeout(()=>{
       b.classList.remove('burst'); b.style.display='none';
       b._bursting=false; document.body.style.paddingTop='';
-    },900);
+    },1100);
     return;
   }
   b._bursting=true;
@@ -1600,29 +1620,32 @@ function handleUpdateClick(){
       if(reg&&reg.waiting){reg.waiting.postMessage('SKIP_WAITING');}
       else{window.location.reload();}
     }).catch(()=>window.location.reload());
-  },820);
+  },950);
 }
 /* 更新帯をタップした時の「破裂→煙」演出 */
 function playUpdateBurst(b){
-  try{ beep(660,70,0); beep(320,140,0.06); }catch(e){}
-  if(navigator.vibrate) navigator.vibrate([30,40,60]);
+  try{ hissSound(); beep(520,90,0.02); beep(260,160,0.1); }catch(e){}   // プシュー＋破裂の低音
+  if(navigator.vibrate) navigator.vibrate([20,30,50,30,80]);
   const r=b.getBoundingClientRect();
   const cx=r.left+r.width/2, cy=r.top+r.height/2;
   b.classList.add('burst');           // 帯がしぼんで消える
-  // 煙の粒をいくつか、中心から放射状に飛ばす
-  const N=14;
+  // 煙の粒を放射状に飛ばす（多め・大きめ・遠くまで）
+  const N=28;
   for(let i=0;i<N;i++){
     const s=document.createElement('div');
     s.className='ub-smoke';
-    const size=26+Math.random()*30;
+    const size=30+Math.random()*46;
     s.style.width=size+'px'; s.style.height=size+'px';
-    s.style.left=(cx-size/2)+'px'; s.style.top=(cy-size/2)+'px';
-    const ang=(Math.PI*2*i/N)+(Math.random()-0.5)*0.5;
-    const dist=60+Math.random()*90;
+    // 帯の幅方向に散らして出す（1点からではなく帯全体から噴く感じ）
+    const ox=(Math.random()-0.5)*r.width*0.7;
+    s.style.left=(cx+ox-size/2)+'px'; s.style.top=(cy-size/2)+'px';
+    const ang=(Math.PI*2*i/N)+(Math.random()-0.5)*0.6;
+    const dist=90+Math.random()*140;
     s.style.setProperty('--sx',(Math.cos(ang)*dist).toFixed(0)+'px');
-    s.style.setProperty('--sy',(Math.sin(ang)*dist-30).toFixed(0)+'px'); // 少し上に流す
+    s.style.setProperty('--sy',(Math.sin(ang)*dist-40).toFixed(0)+'px'); // 上に流す
+    s.style.animationDuration=(0.9+Math.random()*0.4).toFixed(2)+'s';    // 粒ごとに速さを変える
     document.body.appendChild(s);
-    setTimeout(()=>s.remove(),900);
+    setTimeout(()=>s.remove(),1400);
   }
 }
 
