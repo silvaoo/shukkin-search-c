@@ -918,8 +918,7 @@ input[type="date"] {
 </div>
 
 <!-- お知らせバナー(タップで破裂→中身を表示。×で閉じる)
-     ※スプレッドシート連携の準備ができるまで、いったん非表示にしている。
-       復活させるときは下の style="display:none;" を消すだけでよい。 -->
+     初期は非表示。news.json にお知らせが1件以上ある時だけJSで表示する。 -->
 <button id="news-banner" onclick="handleNewsClick()" style="display:none;">
   📢 お知らせがあります！ ▸ タップして見る
   <span id="news-close" onclick="event.stopPropagation();closeNewsBanner()">×</span>
@@ -1994,26 +1993,43 @@ function hissSound(){
 }
 /* =====================================================
    お知らせバナー
-   画像はGoogleドライブの共有フォルダに置いたものを読む。
-   ドライブ側でファイルを差し替えれば(同じファイルの「版を管理」で上げ直せば)
-   アプリを触らずにお知らせを更新できる。
+   一覧は全アプリ共通の news.json(学園前Aのリポジトリに1つだけ置いてある)を読む。
+   急告を出す時は news.json に1行足すだけで、5アプリすべてに反映される。
+   画像そのものはGoogleドライブの共有フォルダに置いたものを表示する。
    ===================================================== */
-const NEWS_FILE_IDS = [
-  '111CJ0Ai-Bz6XU24VkMAdgezw6xOgefUJ',
-  '111gsDLCzkIlB9pO_-4oG6Mrojmkv3hAu'
-];
+const NEWS_LIST_URL = 'https://silvaoo.github.io/shukkin-search/news.json';
+let NEWS_ITEMS = [];
+
 /* ドライブの画像URLは2種類あり、時期によって使える方が変わる。
    まず lh3 を試し、だめなら thumbnail に切り替える(onerrorで自動フォールバック)。 */
 function newsImgTags(){
   const t=Date.now();   // 開くたびに違う値を付け、ブラウザに必ず取り直させる
-  return NEWS_FILE_IDS.map((id,i)=>{
+  return NEWS_ITEMS.map((it,i)=>{
+    const id=it.fileId;
     const primary=`https://lh3.googleusercontent.com/d/${id}=w1200&_=${t}`;
     const backup=`https://drive.google.com/thumbnail?id=${id}&sz=w1200&_=${t}`;
     return `<img src="${primary}" alt="お知らせ${i+1}" loading="lazy"
       onerror="if(!this._retried){this._retried=1;this.src='${backup}';}else{this.style.display='none';}">`;
   }).join('');
 }
-/* バナーをタップ: 破裂演出→お知らせを開く */
+
+/* 起動時に一覧を読み込み、1件以上あればバナーを出す。
+   ?_= を付けて必ず最新を取りに行く(古い一覧が残ると急告が届かないため)。 */
+async function loadNews(){
+  try{
+    const res=await fetch(NEWS_LIST_URL+'?_='+Date.now(),{cache:'no-store'});
+    if(!res.ok)return;
+    const data=await res.json();
+    NEWS_ITEMS=Array.isArray(data.items)?data.items.filter(x=>x&&x.fileId):[];
+    if(NEWS_ITEMS.length>0){
+      const b=document.getElementById('news-banner');
+      if(b)b.style.display='';
+    }
+  }catch(e){
+    /* 圏外や通信失敗の時は黙って何もしない(バナーを出さないだけ) */
+  }
+}
+
 function handleNewsClick(){
   const b=document.getElementById('news-banner');
   if(!b||b._bursting)return;
@@ -3053,7 +3069,7 @@ window.onload=function(){
 <script>
 /* 起動スプラッシュ：短時間表示してフェードアウト（タップでも消える） */
 function hideLaunchSplash(){var s=document.getElementById('launch-splash');if(!s||s.classList.contains('hide'))return;s.classList.add('hide');setTimeout(function(){s.style.display='none';},450);}
-(function(){window.addEventListener('load',function(){setTimeout(hideLaunchSplash,1000);});setTimeout(hideLaunchSplash,3000);})();
+(function(){window.addEventListener('load',function(){setTimeout(hideLaunchSplash,1000);loadNews();});setTimeout(hideLaunchSplash,3000);})();
 </script>
 <script>
 /* 引っ張って更新：iPhoneのホーム画面アプリ(PWA)でも指を下に引くとリロード。
