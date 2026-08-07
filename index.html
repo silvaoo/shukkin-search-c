@@ -917,8 +917,10 @@ input[type="date"] {
   <button class="speak-today-btn" id="speakTodayBtn" onclick="handleSpeakToday()">🔊 今日の勤務を読み上げ</button>
 </div>
 
-<!-- お知らせバナー(タップで破裂→中身を表示。×で閉じる) -->
-<button id="news-banner" onclick="handleNewsClick()">
+<!-- お知らせバナー(タップで破裂→中身を表示。×で閉じる)
+     ※スプレッドシート連携の準備ができるまで、いったん非表示にしている。
+       復活させるときは下の style="display:none;" を消すだけでよい。 -->
+<button id="news-banner" onclick="handleNewsClick()" style="display:none;">
   📢 お知らせがあります！ ▸ タップして見る
   <span id="news-close" onclick="event.stopPropagation();closeNewsBanner()">×</span>
 </button>
