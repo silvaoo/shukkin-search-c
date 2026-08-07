@@ -2003,9 +2003,10 @@ const NEWS_FILE_IDS = [
 /* ドライブの画像URLは2種類あり、時期によって使える方が変わる。
    まず lh3 を試し、だめなら thumbnail に切り替える(onerrorで自動フォールバック)。 */
 function newsImgTags(){
+  const t=Date.now();   // 開くたびに違う値を付け、ブラウザに必ず取り直させる
   return NEWS_FILE_IDS.map((id,i)=>{
-    const primary=`https://lh3.googleusercontent.com/d/${id}=w1200`;
-    const backup=`https://drive.google.com/thumbnail?id=${id}&sz=w1200`;
+    const primary=`https://lh3.googleusercontent.com/d/${id}=w1200&_=${t}`;
+    const backup=`https://drive.google.com/thumbnail?id=${id}&sz=w1200&_=${t}`;
     return `<img src="${primary}" alt="お知らせ${i+1}" loading="lazy"
       onerror="if(!this._retried){this._retried=1;this.src='${backup}';}else{this.style.display='none';}">`;
   }).join('');
