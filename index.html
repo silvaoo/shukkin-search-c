@@ -717,13 +717,16 @@ input[type="date"] {
   margin-top: 14px;
   line-height: 1.8;
 }
-.source-link {
+.source-link,
+a.source-link:link,
+a.source-link:visited {
   color: var(--cyan);
   font-weight: 700;
   text-decoration: underline;
   cursor: pointer;
 }
 .source-modal {
+  overscroll-behavior: contain;   /* モーダル内の引っ張りで画面が再読み込みされるのを防ぐ */
   display: none;
   position: fixed;
   top: 0; left: 0; width: 100%; height: 100%;
@@ -742,6 +745,7 @@ input[type="date"] {
   margin: 0 auto;
 }
 .source-img-scroll {
+  overscroll-behavior: contain;   /* 画像スクロール中のプルリフレッシュ防止 */
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -890,7 +894,7 @@ input[type="date"] {
   <img class="ls-mascot" src="mascot.png" alt="出退勤検索くん">
 </div>
 
-<button id="update-banner" onclick="handleUpdateClick()" style="display:none;">🔄 新しい情報があります！ ▸ タップして更新</button>
+<button id="update-banner" onclick="handleUpdateClick()" style="display:none;">🔄 新しいバージョンがあります。タップで更新</button>
 
 
 <canvas id="fw"></canvas>
@@ -2867,7 +2871,7 @@ function calTap(iso){
   }else if(iso < _selStart){
     _selStart=iso; _selEnd=null;             // 開始日より前を選んだら選び直し
   }else{
-    _selEnd=iso;                             // 2回目: 終了日(同じ日ならその日だけ)。期間の上限なし
+    _selEnd=iso;                             // 2回目: 終了日(同じ日ならその日だけ)
   }
   beep(880,60,0);
   if(navigator.vibrate)navigator.vibrate(15);
@@ -3362,8 +3366,8 @@ function drawFw(){
 /* 元データ画像モーダルの開閉 */
 function openSourceModal(){
   document.getElementById('sourceModal').classList.add('active');
-  var sc=document.getElementById('srcScroll');
-  if(sc){ sc.scrollTop=0; sc.scrollLeft=0; }
+  const sc = document.getElementById('srcScroll');
+  if(sc){ sc.scrollTop = 0; sc.scrollLeft = 0; }   // 開くたび先頭から
 }
 function closeSourceModal(){
   document.getElementById('sourceModal').classList.remove('active');
